@@ -41,6 +41,13 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
           data[f.name] = [];
         }
         break;
+      case 'object':
+        try {
+          data[f.name] = JSON.parse(String(raw ?? '{}')) ?? {};
+        } catch {
+          data[f.name] = {};
+        }
+        break;
       default:
         data[f.name] = raw === null ? '' : String(raw);
     }

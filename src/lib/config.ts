@@ -13,6 +13,11 @@ export type Widget =
   | 'boolean' // checkbox
   | 'number' // numérico
   | 'datetime' // data (YYYY-MM-DD)
+  | 'url' // input type=url
+  | 'email' // input type=email
+  | 'color' // seletor de cor (#hex)
+  | 'object' // grupo de subcampos (use `fields`) salvo como um objeto
+  | 'relation' // referência a uma entrada de outra coleção (use `collection`)
   | 'list'; // repetidor (lista de strings, ou de objetos via `fields`)
 
 export interface Field {
@@ -21,10 +26,17 @@ export interface Field {
   widget: Widget;
   required?: boolean;
   hint?: string;
+  /** Coloca o campo na coluna lateral do editor (em vez da principal). */
+  sidebar?: boolean;
   /** Para `select`. */
   options?: string[];
-  /** Para `list` de objetos: define os subcampos de cada item. Sem isto, é lista de strings. */
+  /** Para `list` de objetos e `object`: subcampos. */
   fields?: Field[];
+  /** Para `relation`: nome da coleção referenciada. */
+  collection?: string;
+  /** Para `relation`: campo guardado (default 'slug') e exibido (default titleField). */
+  valueField?: string;
+  labelField?: string;
   /** Valor inicial em itens novos. */
   default?: unknown;
 }

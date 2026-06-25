@@ -11,8 +11,10 @@ import ImageField from '@/components/admin/ImageField.astro';
 interface Props {
   field: Field;
   value: any;
+  /** Opções resolvidas para o widget `relation` (preenchidas pela página). */
+  relationOptions?: { value: string; label: string }[];
 }
-const { field, value } = Astro.props;
+const { field, value, relationOptions = [] } = Astro.props;
 
 const inp =
   'w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 outline-none transition placeholder:text-neutral-500 focus:border-[#3b6fe0] focus:ring-2 focus:ring-[#0040C8]/35';
@@ -49,6 +51,42 @@ const rows: any[] = field.widget === 'list' && Array.isArray(v) ? v : [];
 
     {field.widget === 'datetime' && (
       <input id={field.name} name={field.name} type="date" value={typeof v === 'string' ? v.slice(0, 10) : ''} class={inp} />
+    )}
+
+    {field.widget === 'url' && (
+      <input id={field.name} name={field.name} type="url" value={v ?? ''} required={field.required} placeholder="https://…" class={inp} />
+    )}
+
+    {field.widget === 'email' && (
+      <input id={field.name} name={field.name} type="email" value={v ?? ''} required={field.required} class={inp} />
+    )}
+
+    {field.widget === 'color' && (
+      <div class="flex items-center gap-2">
+        <input name={field.name} type="color" value={typeof v === 'string' && v ? v : '#0040c8'} class="h-9 w-12 cursor-pointer rounded-md border border-neutral-700 bg-neutral-900" />
+        <span class="text-xs text-neutral-500">{v ?? '#0040c8'}</span>
+      </div>
+    )}
+
+    {field.widget === 'relation' && (
+      <select id={field.name} name={field.name} class={inp}>
+        <option value="">— nenhum —</option>
+        {relationOptions.map((o) => <option value={o.value} selected={String(v) === o.value}>{o.label}</option>)}
+      </select>
+    )}
+
+    {field.widget === 'object' && (
+      <div>
+        <input type="hidden" name={field.name} />
+        <div data-object={field.name} class="grid gap-2 rounded-lg border border-neutral-800 p-3 sm:grid-cols-2">
+          {(field.fields ?? []).map((sf) => (
+            <div>
+              <label class="mb-1 block text-xs text-neutral-400">{sf.label}</label>
+              <input data-objfield={sf.name} value={(v && typeof v === 'object' ? v[sf.name] : '') ?? ''} placeholder={sf.label} class={inp} />
+            </div>
+          ))}
+        </div>
+      </div>
     )}
 
     {field.widget === 'select' && (

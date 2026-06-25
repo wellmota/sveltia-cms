@@ -5,7 +5,7 @@ import Field from '@/components/admin/Field.astro';
 import MediaPicker from '@/components/admin/MediaPicker.astro';
 import Toast from '@/components/admin/Toast.astro';
 import { getCollection, siteUrl, titleOf } from '@/lib/cms';
-import { getById, listRevisions, type Entry } from '@/lib/entries';
+import { getById, listForAdmin, listRevisions, type Entry } from '@/lib/entries';
 
 const user = Astro.locals.user!;
 const { collection, id } = Astro.params;
@@ -22,8 +22,24 @@ if (!isNew) {
 }
 
 const data: Record<string, any> = entry?.data ?? {};
-// defaults pra item novo
 if (isNew) for (const f of col.fields) if (data[f.name] === undefined && f.default !== undefined) data[f.name] = f.default;
+
+// Resolve opções dos campos `relation` (entradas de outra coleção).
+const relOpts: Record<string, { value: string; label: string }[]> = {};
+for (const f of col.fields) {
+  if (f.widget === 'relation' && f.collection) {
+    const rc = getCollection(f.collection);
+    const rows = await listForAdmin(f.collection);
+    const vf = f.valueField ?? 'slug';
+    relOpts[f.name] = rows.map((e) => ({
+      value: vf === 'slug' ? e.slug : String(e.data?.[vf] ?? e.slug),
+      label: f.labelField ? String(e.data?.[f.labelField] ?? e.slug) : rc ? titleOf(rc, e.data) : e.slug,
+    }));
+  }
+}
+
+const mainFields = col.fields.filter((f) => !f.sidebar);
+const sidebarFields = col.fields.filter((f) => f.sidebar);
 
 const draft = entry?.draft ?? true;
 const featured = entry?.featured ?? false;
@@ -38,7 +54,7 @@ const inp =
 const lbl = 'mb-1 block text-sm font-medium text-neutral-300';
 ---
 
-<AdminLayout title={isNew ? `Novo ${singular}` : titleOf(col, data)} user={user}>
+<AdminLayout title={isNew ? `Novo ${singular}` : titleOf(col, data)} user={user} wide>
   <div class="mb-6 flex items-center justify-between">
     <h1 class="text-xl font-bold tracking-tight">{isNew ? `Novo: ${singular}` : `Editar ${singular}`}</h1>
     <div class="flex items-center gap-4">
@@ -51,17 +67,19 @@ const lbl = 'mb-1 block text-sm font-medium text-neutral-300';
 
   {erro && <Toast type="error" message={erro === 'obrigatorio' ? 'Preencha os campos obrigatórios.' : 'Não foi possível salvar.'} />}
 
-  <form method="POST" action="/api/admin/entry" id="entry-form" class="space-y-5">
+  <form method="POST" action="/api/admin/entry" id="entry-form" class="grid grid-cols-1 gap-5 lg:grid-cols-3">
     <input type="hidden" name="collection" value={col.name} />
     <input type="hidden" name="id" value={isNew ? '' : entry!.id} />
 
-    <div class={`${card} space-y-4`}>
-      {col.fields.map((f) => <Field field={f} value={data[f.name]} />)}
+    <div class="space-y-5 lg:col-span-2">
+      <div class={`${card} space-y-4`}>
+        {mainFields.map((f) => <Field field={f} value={data[f.name]} relationOptions={relOpts[f.name]} />)}
+      </div>
     </div>
 
-    <div class={`${card} grid grid-cols-1 gap-4 sm:grid-cols-2`}>
-      <div class="sm:col-span-2"><p class="text-sm font-semibold text-neutral-200">Publicação</p></div>
-      <div class="flex items-end gap-6">
+    <aside class="space-y-5">
+      <div class={`${card} space-y-4`}>
+        <p class="text-sm font-semibold text-neutral-200">Publicação</p>
         <label class="flex items-center gap-2 text-sm text-neutral-200">
           <input type="checkbox" name="draft" checked={draft} class="size-4 accent-[#0040C8]" /> Rascunho
         </label>
@@ -70,15 +88,20 @@ const lbl = 'mb-1 block text-sm font-medium text-neutral-300';
             <input type="checkbox" name="featured" checked={featured} class="size-4 accent-[#0040C8]" /> Destaque
           </label>
         )}
+        {col.orderable && (
+          <div><label class={lbl} for="ord">Ordem</label><input id="ord" name="ord" type="number" value={ord} class={inp} /></div>
+        )}
+        <div><label class={lbl} for="slug">Slug (URL)</label><input id="slug" name="slug" type="text" value={slug} placeholder="auto a partir do título" class={inp} /></div>
       </div>
-      {col.orderable && (
-        <div><label class={lbl} for="ord">Ordem</label><input id="ord" name="ord" type="number" value={ord} class={inp} /></div>
+      {sidebarFields.length > 0 && (
+        <div class={`${card} space-y-4`}>
+          {sidebarFields.map((f) => <Field field={f} value={data[f.name]} relationOptions={relOpts[f.name]} />)}
+        </div>
       )}
-      <div><label class={lbl} for="slug">Slug (URL)</label><input id="slug" name="slug" type="text" value={slug} placeholder="auto a partir do título" class={inp} /></div>
-    </div>
+    </aside>
 
     <!-- Barra de ações flutuante -->
-    <div class="sticky bottom-0 z-30 -mx-6 flex items-center gap-3 border-t border-neutral-800 bg-neutral-950/85 px-6 py-3 backdrop-blur">
+    <div class="sticky bottom-0 z-30 -mx-6 flex items-center gap-3 border-t border-neutral-800 bg-neutral-950/85 px-6 py-3 backdrop-blur lg:col-span-3">
       <span data-save-hint class="hidden text-xs text-neutral-500 sm:block"></span>
       <div class="ml-auto flex items-center gap-4">
         {!isNew && (
@@ -139,10 +162,7 @@ const lbl = 'mb-1 block text-sm font-medium text-neutral-300';
     let mde: any;
     const imageBtn = {
       name: 'image-library',
-      action: () => (window as any).openMediaPicker?.((url: string) => {
-        mde.codemirror.replaceSelection(`![](${url})`);
-        mde.codemirror.focus();
-      }),
+      action: () => (window as any).openMediaPicker?.((url: string) => { mde.codemirror.replaceSelection(`![](${url})`); mde.codemirror.focus(); }),
       className: 'fa fa-picture-o',
       title: 'Inserir imagem da biblioteca',
     };
@@ -156,7 +176,6 @@ const lbl = 'mb-1 block text-sm font-medium text-neutral-300';
     editors.push({ el: ta, mde });
   });
 
-  // Repeaters (widget list): adicionar/remover + serializar em JSON no submit.
   document.addEventListener('click', (e) => {
     const add = (e.target as HTMLElement).closest('[data-add]');
     if (add) {
@@ -189,9 +208,17 @@ const lbl = 'mb-1 block text-sm font-medium text-neutral-300';
       const hidden = form.querySelector(`input[name="${rep.getAttribute('data-repeater')}"]`) as HTMLInputElement | null;
       if (hidden) hidden.value = JSON.stringify(collect(rep));
     });
+    document.querySelectorAll('[data-object]').forEach((box) => {
+      const name = box.getAttribute('data-object');
+      const hidden = form.querySelector(`input[name="${name}"]`) as HTMLInputElement | null;
+      if (!hidden) return;
+      const obj: Record<string, string> = {};
+      box.querySelectorAll('[data-objfield]').forEach((el) => (obj[(el as HTMLElement).getAttribute('data-objfield')!] = (el as HTMLInputElement).value));
+      hidden.value = JSON.stringify(obj);
+    });
   });
 
-  // Save bar: dica de status, "Salvando…" e ⌘/Ctrl+S.
+  // Save bar: status, "Salvando…" e ⌘/Ctrl+S.
   (function () {
     if (!form) return;
     const btn = form.querySelector('[data-save-btn]') as HTMLButtonElement | null;

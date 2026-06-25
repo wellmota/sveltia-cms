@@ -61,7 +61,7 @@ export default defineConfig({
 });
 ```
 
-**Widgets:** `string`, `text`, `markdown`, `image`, `select`, `boolean`, `number`, `datetime`, `list` (de strings, ou de objetos via `fields`). Sistema: `draft`, `featured` (se `featurable`), `ord` (se `orderable`) e `slug` são automáticos.
+**Widgets:** `string`, `text`, `markdown`, `image`, `select`, `boolean`, `number`, `datetime`, `url`, `email`, `color`, `object` (subcampos via `fields`), `relation` (referência a outra coleção via `collection`), `list` (de strings, ou de objetos via `fields`). Use `sidebar: true` num campo pra movê-lo da coluna principal pra lateral do editor. Sistema: `draft`, `featured` (se `featurable`), `ord` (se `orderable`) e `slug` são automáticos.
 
 ## API pública (o que seu site consome)
 
@@ -98,7 +98,8 @@ Publicar = desmarcar **Rascunho** e salvar — aparece na API na hora (o site re
 
 ## Roadmap
 
-- [ ] Mais widgets (relation/reference, object aninhado, rich list).
+- [x] Widgets de relação e objeto aninhado, layout de editor em duas colunas (`sidebar`).
+- [ ] Mais widgets (object profundo/aninhado em listas, datas com hora, markdown em listas).
 - [ ] Preview da página real (iframe do site).
 - [ ] Integração MCP (agente edita via [Model Context Protocol](https://modelcontextprotocol.io/), humano aprova).
 - [ ] Papéis/permissões mais finos; i18n.
